@@ -326,7 +326,7 @@ pub async fn list(
 
     let bilibili = login_by_cookies(user_cookie, proxy).await?;
     bilibili
-        .recent_archives(status, from_page, max_pages)
+        .recent_archives(status, from_page, max_pages, None)
         .await
         .change_context_lazy(|| AppError::Unknown)?
         .iter()

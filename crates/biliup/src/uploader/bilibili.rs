@@ -875,9 +875,13 @@ impl BiliBili {
     }
 
     /// 稿件管理
-    async fn archives(&self, status: &str, page_num: u32) -> Result<Value> {
+    async fn archives(&self, status: &str, page_num: u32, keyword: Option<&str>) -> Result<Value> {
         let url_str = "https://member.bilibili.com/x/web/archives";
-        let params = [("status", status), ("pn", &page_num.to_string())];
+        let pn = page_num.to_string();
+        let mut params: Vec<(&str, &str)> = vec![("status", status), ("pn", &pn)];
+        if let Some(keyword) = keyword {
+            params.push(("keyword", keyword));
+        }
         let url = reqwest::Url::parse_with_params(url_str, &params).unwrap();
 
         let cookie = self.get_cookie()?;
@@ -908,11 +912,14 @@ impl BiliBili {
     }
 
     /// Fetch a bounded page range while preserving pagination metadata.
+    ///
+    /// `keyword` 按标题关键字过滤稿件，`None` 表示不过滤。
     pub async fn recent_archives_page(
         &self,
         status: &str,
         from_page: u32,
         max_pages: Option<u32>,
+        keyword: Option<&str>,
     ) -> Result<ArchivePage> {
         // Validate request-only bounds before issuing a network request.
         if from_page == 0 {
@@ -922,7 +929,7 @@ impl BiliBili {
             return Err(Kind::Custom("max_pages must be at least 1".into()));
         }
 
-        let first_page = self.archives(status, from_page).await?;
+        let first_page = self.archives(status, from_page, keyword).await?;
         let (metadata, mut archives) = parse_archive_page(first_page)?;
         let plan = pagination_plan(metadata.ps, metadata.count, from_page, max_pages)?;
 
@@ -931,7 +938,7 @@ impl BiliBili {
             page_num = page_num
                 .checked_add(1)
                 .ok_or_else(|| Kind::Custom("archive page range is too large".into()))?;
-            let page = self.archives(status, page_num).await?;
+            let page = self.archives(status, page_num, keyword).await?;
             let (page_metadata, mut page_archives) = parse_archive_page(page)?;
             validate_archive_page_metadata(&metadata, &page_metadata)?;
             archives.append(&mut page_archives);
@@ -950,18 +957,21 @@ impl BiliBili {
     /// 获取所有稿件
     #[deprecated(note = "use `recent_archives` instead")]
     pub async fn all_archives(&self, status: &str) -> Result<Vec<Archive>> {
-        self.recent_archives(status, 1, None).await
+        self.recent_archives(status, 1, None, None).await
     }
 
     /// 获取页数范围内的稿件
+    ///
+    /// `keyword` 按标题关键字过滤稿件，`None` 表示不过滤。
     pub async fn recent_archives(
         &self,
         status: &str,
         from_page: u32,
         max_pages: Option<u32>,
+        keyword: Option<&str>,
     ) -> Result<Vec<Archive>> {
         Ok(self
-            .recent_archives_page(status, from_page, max_pages)
+            .recent_archives_page(status, from_page, max_pages, keyword)
             .await?
             .archives)
     }

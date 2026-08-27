@@ -119,7 +119,7 @@ pub async fn get_user_archives_endpoint(
         .change_context(AppError::Custom("无法读取或刷新该用户凭据".into()))
         .map_err(report_to_response)?;
     let page = bili
-        .recent_archives_page(status, query.from_page, Some(query.max_pages))
+        .recent_archives_page(status, query.from_page, Some(query.max_pages), None)
         .await
         .change_context(AppError::Unknown)
         .map_err(report_to_response)?;
